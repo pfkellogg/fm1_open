@@ -15,10 +15,15 @@ $build = Join-Path $root "build/$Profile"
 $official = Join-Path $root 'build/official-web'
 $utf8 = New-Object Text.UTF8Encoding $false
 function Write-Text($file, $text) { [IO.File]::WriteAllText($file, $text, $utf8) }
+# On macOS/Linux the JieLi Windows tools run under Wine (set FM1_WINE to its wine binary).
+function Exe($program, [string[]]$arguments) {
+    if ($IsWindows -or !$program.EndsWith('.exe')) { & $program @arguments }
+    else { & $env:FM1_WINE $program @arguments }
+}
 function Run($program, [string[]]$arguments) {
     $old = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    try { & $program @arguments; $result = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
+    try { Exe $program $arguments; $result = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
     if ($result -ne 0) { throw "$([IO.Path]::GetFileName($program)) failed ($result)" }
 }
 function Hash($file) { (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() }
@@ -32,7 +37,7 @@ function Test-Firmware {
     $elf = Join-Path $build 'sdk.elf'
     $report = Join-Path $build 'firmware-report.json'
     Write-Text $report '{"passed":false}'
-    $symbols = & (Join-Path $bin 'llvm-nm.exe') --print-size $elf
+    $symbols = Exe (Join-Path $bin 'llvm-nm.exe') @('--print-size', $elf)
     if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect ELF symbols.' }
     $info = New-Object 'Collections.Generic.Dictionary[string,object]' ([StringComparer]::Ordinal)
     $heap = [ordered]@{}
@@ -331,7 +336,7 @@ foreach ($name in @($synth.sram_required) + @($synth.sram_optional)) {
 }
 foreach ($file in $manifest.files.PSObject.Properties) {
     $full = [IO.Path]::GetFullPath((Join-Path $root $file.Name))
-    if (!$full.StartsWith($sdk + '\', [StringComparison]::OrdinalIgnoreCase) -or
+    if (!$full.StartsWith($sdk + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
         (Hash $full) -ne $file.Value) { throw "SDK payload changed: $($file.Name)" }
 }
 $expected = @{}
@@ -346,14 +351,14 @@ $variantName = 'release'
 $variant = [pscustomobject]@{user_bytes=536576; frozen='sdk/lib/libfm1_engine.a'; update_family=7}
 $include = @('sdk/include','sdk/include/libc','app/synth','sdk/config','app','app/board')
 $sources = @(Get-ChildItem -LiteralPath (Join-Path $root 'app') -Recurse -File |
-    Where-Object { $_.Extension -in @('.c','.S') -and !$_.FullName.StartsWith(([IO.Path]::GetFullPath((Join-Path $root 'app/synth'))+'\'),[StringComparison]::OrdinalIgnoreCase) } | Sort-Object FullName | ForEach-Object { $_.FullName.Substring($root.Length+1).Replace('\','/') })
+    Where-Object { $_.Extension -in @('.c','.S') -and !$_.FullName.StartsWith(([IO.Path]::GetFullPath((Join-Path $root 'app/synth'))+[IO.Path]::DirectorySeparatorChar),[StringComparison]::OrdinalIgnoreCase) } | Sort-Object FullName | ForEach-Object { $_.FullName.Substring($root.Length+1).Replace('\','/') })
 $extra = @('groove_sequence_render','groove_sequence_clock','groove_sequence_position','groove_sequence_transport','fm1_sea_decode_groups','fm1_codec_sea_mono_s16_run') + @($synth.sram_required) + @(
     'synth_dx7_render','synth_dx7_midi','synth_dx7_key','fm1_dx7_panic','fm_exp2_fixed','bass303_bank_render','bass303_bank_key','bass303_bank_set','drum808_kit_render','drum808_kit_trigger','psg_render','psg_key','psg_midi','psg_panic','psg_set','psg_get','pluck_render','pluck_key','pluck_midi','pluck_panic','pluck_set','pluck_get','fm1_mix128','fm1_mix_mono_stereo128','fm1_bus_output128','fm1_master_mix128','fm1_master_gain','fm1_declick128','fm1_render_begin','fm1_render_end','synth_dx7_active','bass303_bank_active','drum808_kit_active','psg_active','pluck_active','sampledrum_active','synth_dx7_limit','psg_limit','pluck_limit','sampledrum_limit','bass303_advance_idle','fm1_send128','fm1_fx_render','fm1_fx_clear','fm1_fx_active','sampledrum_render','sampledrum_trigger','sampledrum_panic','psg_active_chips')
 [IO.Directory]::CreateDirectory((Join-Path $build 'obj')) | Out-Null
 [IO.Directory]::CreateDirectory((Join-Path $build 'generated')) | Out-Null
 # All application units are rebuilt. Remove objects for deleted/renamed sources.
 $objectDirectory = [IO.Path]::GetFullPath((Join-Path $build 'obj'))
-if (!$objectDirectory.StartsWith($root + '\build\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid object directory.' }
+if (!$objectDirectory.StartsWith([IO.Path]::Combine($root, 'build') + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid object directory.' }
 foreach ($file in Get-ChildItem -LiteralPath $objectDirectory -File) { Remove-Item -LiteralPath $file.FullName }
 $flags = @('-target','pi32v2','-integrated-as','-mcpu=r3','-mfprev1','-Wuninitialized',
     '-Wno-invalid-noreturn','-fno-common','-flto','-fallow-pointer-null','-fprefer-gnu-section',
