@@ -1637,7 +1637,8 @@ static void draw(const struct fm1_ble_status *ble)
 /* Screen mirror: while a computer asks for it, every band sent to the LCD is
  * also sent out over USB MIDI, so the screen can be shown big (for players
  * who can't read a 1.54-inch display). The computer sends F0 7D 'F' 'S' 00 F7
- * about once a second; streaming stops three seconds after the last one.
+ * about once a second (01 instead of 00: and the whole screen again, please);
+ * streaming stops three seconds after the last one.
  * Each band row goes out as F0 7D 'F' 'S' 01 row col <runs> F7 (row and col
  * 0-127 or, from 128, +128 in a second byte: always two bytes each), each run
  * four bytes: count 1-127, then the RGB565 colour as bits 0-6, 7-13, 14-15.
@@ -1649,8 +1650,10 @@ enum { MIRROR_BUFFER = 16384, MIRROR_MESSAGE = 70, MIRROR_TIMEOUT = 3000 };
 static uint8_t mirror_buffer[MIRROR_BUFFER];
 static unsigned mirror_length, mirror_sent, mirror_on, mirror_hello;
 static uint32_t mirror_heard;
-/* Called in the control task (the SysEx hook), which then polls the screen. */
-void groove_screen_mirror_hello(void) { mirror_hello = 1; }
+/* Called in the control task (the SysEx hook), which then polls the screen.
+ * F0 7D 'F' 'S' 01 F7 also asks for the whole screen again (a viewer that
+ * has just joined while another kept the mirror on). */
+void groove_screen_mirror_hello(unsigned all) { mirror_hello = 1 + all; }
 /* The band just composed in paint_pixels, before the LCD transfer swaps it.
  * 0: no room yet, paint it later. A band bigger than the whole buffer is sent
  * as far as it fits rather than holding the LCD up for ever. */
@@ -1689,9 +1692,9 @@ static __attribute__((minsize)) int mirror_band(unsigned band, unsigned left, un
 static __attribute__((minsize)) void mirror_poll(uint32_t now)
 {
     if (mirror_hello) {
-        mirror_hello = 0;
         mirror_heard = now;
-        if (!mirror_on) saved_cache.shown_page = ~0U; /* send the whole screen */
+        if (!mirror_on || mirror_hello > 1) saved_cache.shown_page = ~0U; /* send the whole screen */
+        mirror_hello = 0;
         mirror_on = 1;
     }
     if (now - mirror_heard >= MIRROR_TIMEOUT) mirror_on = 0;
