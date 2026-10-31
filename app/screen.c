@@ -1643,7 +1643,7 @@ static void draw(const struct fm1_ble_status *ble)
  * 0-127 or, from 128, +128 in a second byte: always two bytes each), each run
  * four bytes: count 1-127, then the RGB565 colour as bits 0-6, 7-13, 14-15.
  * Messages stay small because the SDK's USB output queue is shared with note
- * output. While the buffer is too full for a band, the LCD waits for it too,
+ * output (FM-1 Mirror, github.com/pfkellogg/fm1-mirror, shows them). While the buffer is too full for a band, the LCD waits for it too,
  * so nothing is missed. Flash is nearly full: this is kept as small as it can be,
  * and the boot logo lost its growing bars to make room. */
 enum { MIRROR_BUFFER = 16384, MIRROR_MESSAGE = 70, MIRROR_TIMEOUT = 3000 };
