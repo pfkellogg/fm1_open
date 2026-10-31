@@ -1645,7 +1645,7 @@ static void draw(const struct fm1_ble_status *ble)
  * output. While the buffer is too full for a band, the LCD waits for it too,
  * so nothing is missed. Flash is nearly full: this is kept as small as it can be,
  * and the boot logo lost its growing bars to make room. */
-enum { MIRROR_BUFFER = 8192, MIRROR_MESSAGE = 70, MIRROR_TIMEOUT = 3000 };
+enum { MIRROR_BUFFER = 16384, MIRROR_MESSAGE = 70, MIRROR_TIMEOUT = 3000 };
 static uint8_t mirror_buffer[MIRROR_BUFFER];
 static unsigned mirror_length, mirror_sent, mirror_on, mirror_hello;
 static uint32_t mirror_heard;
