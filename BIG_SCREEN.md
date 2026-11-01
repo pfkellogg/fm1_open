@@ -16,4 +16,8 @@ It is not an official M-VAVE release.
   points at a wine binary (PowerShell 7 runs the script). Because Build.ps1 changed, its pinned hash in
   sdk/manifest.json was updated.
 
+- **MIT licensed screen part:** the screen mirror (this "Screen mirror" section, the hello check, and a
+  firmware-neutral copy in [screen_mirror/](screen_mirror/)) is MIT licensed, so other FM-1
+  firmwares can use it whatever their licence. FM-1 Mirror shows any firmware that sends these messages.
+
 Contact: pfkellogg@gmail.com
