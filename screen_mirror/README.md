@@ -45,6 +45,27 @@ VID `0x3654` PID `0x7756`. Other firmwares may use their own.
    returns 0, the queue is full: try again after `sm_poll`, or repaint those rows later.
 4. When `sm_take_full_request()` returns 1, repaint the whole screen.
 
-The buffer is 16 KB (`-DSM_BUFFER=…` to change it). `cc screen_mirror.c test.c && ./a.out` runs the test.
+The buffer is 16 KB by default (`-DSM_BUFFER=…` to change it: ChoralRoot uses 6 KB). What has been sent frees its
+room at once, so a small buffer keeps up too. `cc screen_mirror.c test.c && ./a.out` runs the test.
+
+## A real example: ChoralRoot
+
+[ChoralRoot](https://github.com/Quixotic7/ChoralRootFM1) (Quixotic7's chord instrument for the FM-1, built on
+Felucca) runs with the big screen in [pfkellogg/ChoralRootFM1, branch `big-screen`](https://github.com/pfkellogg/ChoralRootFM1/tree/big-screen),
+tested on a real FM-1 with FM-1 Mirror (Mac) and FM-1 Mirror + Spyglass (Android). What it took:
+
+- **26 lines in ChoralRoot's own files**, and only **6 of them do the work**; the other 20 are an on/off switch
+  (`CR_BIG_SCREEN`), so Felucca and the update loader, which share these files, build exactly as before:
+  - `lcd.c`: one call in `lcd_blit` and one in `lcd_fill`, where every rectangle goes to the LCD.
+  - `usb.c`: two lines where its SysEx parser finishes a message: a 6-byte `F0 7D 'F' 'S' .. F7` goes to `sm_sysex`.
+  - `main.c`: one call a main-loop pass, `mirror_service()`.
+  - `choralroot.c`: the switch, and including the adapter.
+- **One new adapter file, 60 lines** (`firmware/src/cr_mirror.c`, MIT): turns ChoralRoot's byte-swapped pixels back
+  into RGB565 rows for `sm_rows`, sends each message into usb.c's SysEx queue without ever waiting on it (`-2` when
+  it's full), and asks ChoralRoot to redraw everything (`ui.force = 1`) when a new viewer joins or rows had to be
+  dropped. A draw never waits more than 0.4 s for USB, so a host that stops reading can't slow the FM-1 down.
+- **This module, unchanged.** Cost: about 1 KB of flash and 6.5 KB of RAM.
+
+The same three hooks fit any firmware: where it draws to the LCD, where a SysEx message ends, and its main loop.
 
 Questions, or want it tested on a real FM-1? pfkellogg@gmail.com — Patrick F. Kellogg

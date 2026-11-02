@@ -3,7 +3,13 @@
 #include <assert.h>
 #include <stdio.h>
 static uint8_t got[256]; static unsigned got_n;
-static int send(const uint8_t *m, unsigned n) { for (unsigned i = 0; i < n; ++i) got[got_n++] = m[i]; return 0; }
+static unsigned busy_after; /* >0: busy after that many messages */
+static int send(const uint8_t *m, unsigned n)
+{
+    if (busy_after && got_n) return -2;
+    for (unsigned i = 0; i < n && got_n < sizeof got; ++i) got[got_n++] = m[i];
+    return 0;
+}
 int main(void)
 {
     const uint8_t hi[] = {0xf0, 0x7d, 'F', 'S', 1, 0xf7};
@@ -20,6 +26,19 @@ int main(void)
     for (unsigned i = 0; i < got_n; ++i) assert(got[i] == want[i]);
     sm_poll(4200, send);
     assert(!sm_on()); /* stopped 3 s after the last hello */
+    /* A busy output: what was sent leaves room at once (the buffer is compacted), not only once it's empty. */
+    assert(sm_sysex(hi, 6));
+    sm_poll(5000, send);
+    sm_take_full_request();
+    static uint16_t wide[240];
+    for (unsigned i = 0; i < 240; ++i) wide[i] = (uint16_t)(i * 97u); /* every pixel different: many messages */
+    unsigned rows = 0;
+    while (sm_rows(wide, 0, rows, 240, 1)) ++rows; /* fill it */
+    assert(rows > 0);
+    busy_after = 1; got_n = 0;
+    sm_poll(5100, send);                            /* one message goes, then busy */
+    assert(sm_rows(wide, 0, 0, 1, 1));              /* room again for a small row */
+    busy_after = 0;
     puts("ok");
     return 0;
 }

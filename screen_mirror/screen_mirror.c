@@ -15,38 +15,39 @@
 #define SM_MESSAGE 70u
 #define SM_TIMEOUT 3000u
 
-static uint8_t buffer[SM_BUFFER];
-static unsigned length, sent, on, hello, full;
-static uint32_t heard;
+/* (sm_ prefixed: a firmware built as one compilation unit, like ChoralRoot, may have its own "buffer", "length"...) */
+static uint8_t sm_buffer[SM_BUFFER];
+static unsigned sm_length, sm_sent, sm_live, sm_hello, sm_full;
+static uint32_t sm_heard;
 
 int sm_sysex(const uint8_t *m, unsigned n)
 {
     if (n != 6 || m[0] != 0xf0 || m[1] != 0x7d || m[2] != 'F' || m[3] != 'S' || m[5] != 0xf7)
         return 0;
-    hello = 1u + (m[4] == 1);
+    sm_hello = 1u + (m[4] == 1);
     return 1;
 }
 
-int sm_on(void) { return on || hello; }
+int sm_on(void) { return sm_live || sm_hello; }
 
 int sm_take_full_request(void)
 {
-    unsigned f = full;
-    full = 0;
+    unsigned f = sm_full;
+    sm_full = 0;
     return (int)f;
 }
 
 int sm_rows(const uint16_t *px, unsigned left, unsigned top, unsigned width, unsigned rows)
 {
-    unsigned before = length;
+    unsigned before = sm_length;
     for (unsigned row = 0; row < rows; ++row, px += width)
         for (unsigned i = 0; i < width;) {
-            if (length + 1u + SM_MESSAGE > SM_BUFFER) { /* room for a whole message, or wait */
+            if (sm_length + 1u + SM_MESSAGE > SM_BUFFER) { /* room for a whole message, or wait */
                 if (!before) return 1; /* bigger than the whole buffer: sent as far as it fits */
-                length = before;
+                sm_length = before;
                 return 0;
             }
-            uint8_t *out = buffer + length;
+            uint8_t *out = sm_buffer + sm_length;
             unsigned y = top + row, x = left + i, k = 10;
             out[1] = 0xf0; out[2] = 0x7d; out[3] = 'F'; out[4] = 'S'; out[5] = 1;
             out[6] = (uint8_t)(y & 127u); out[7] = (uint8_t)(y >> 7);
@@ -62,25 +63,35 @@ int sm_rows(const uint16_t *px, unsigned left, unsigned top, unsigned width, uns
             }
             out[k] = 0xf7;
             out[0] = (uint8_t)k;
-            length += 1u + k;
+            sm_length += 1u + k;
         }
     return 1;
 }
 
 void sm_poll(uint32_t now, sm_send_fn send)
 {
-    if (hello) {
-        heard = now;
-        if (!on || hello > 1) full = 1;
-        hello = 0;
-        on = 1;
+    if (sm_hello) {
+        sm_heard = now;
+        if (!sm_live || sm_hello > 1) sm_full = 1;
+        sm_hello = 0;
+        sm_live = 1;
     }
-    if (now - heard >= SM_TIMEOUT) on = 0;
-    while (on && sent < length) {
-        int r = send(buffer + sent + 1, buffer[sent]);
-        if (r == -2) return; /* busy: the rest next time */
-        if (r) on = 0;
-        sent += 1u + buffer[sent];
+    if (now - sm_heard >= SM_TIMEOUT) sm_live = 0;
+    while (sm_live && sm_sent < sm_length) {
+        int r = send(sm_buffer + sm_sent + 1, sm_buffer[sm_sent]);
+        if (r == -2) break; /* busy: the rest next time */
+        if (r) sm_live = 0;
+        sm_sent += 1u + sm_buffer[sm_sent];
     }
-    length = sent = 0;
+    if (!sm_live || sm_sent >= sm_length) {
+        sm_length = sm_sent = 0;
+    } else if (sm_sent) {
+        /* Move what's left to the front, so the room it freed takes new rows now (with a small buffer, waiting for
+         * all of it to go first held the screen up too long). Forward copy: the data only moves down. */
+        unsigned i, n = sm_length - sm_sent;
+        for (i = 0; i < n; i++)
+            sm_buffer[i] = sm_buffer[sm_sent + i];
+        sm_length = n;
+        sm_sent = 0;
+    }
 }
