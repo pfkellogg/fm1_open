@@ -21,6 +21,8 @@ M-VAVE's FM1 Open and keeps its own licence.
 - Row and column are two 7-bit bytes each (`low = v & 127`, `high = v >> 7`).
 - Each run is four bytes: a count 1–127, then the RGB565 colour as bits 0–6, 7–13 and 14–15.
 - Messages stay at 70 bytes or less, so they share a small USB queue with note output.
+- Send the rows on the port the hello came from (USB or Bluetooth MIDI): the Big Screen firmware
+  does, and FM-1 Mirror and FM-1 Mirror + Spyglass use either. Bluetooth is slower, but keeps up.
 - The firmware sends only what it paints (what changes), and stops 3 seconds after the last hello.
   With nobody asking it sends nothing, so playing is unaffected.
 - `7D` is MIDI's non-commercial manufacturer ID.

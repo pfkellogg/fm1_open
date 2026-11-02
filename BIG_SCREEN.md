@@ -1,7 +1,7 @@
 # FM-1 Big Screen (screen mirror)
 
 This branch (`screen-out`) adds one thing to M-VAVE's FM1 Open V14: while a computer asks for it,
-the FM-1 sends its screen over its USB MIDI connection, so it can be shown big by
+the FM-1 sends its screen over MIDI, on the connection that asked (USB, or Bluetooth MIDI), so it can be shown big by
 [FM-1 Mirror](https://github.com/pfkellogg/fm1-mirror) (Mac, Windows, Linux) or
 [FM-1 Mirror + Spyglass](https://github.com/pfkellogg/fm1-mirror-spyglass-android) (Android), for players who can't read a 1.54-inch display.
 It is not an official M-VAVE release.
