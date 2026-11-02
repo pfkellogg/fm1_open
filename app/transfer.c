@@ -41,7 +41,7 @@ void fm1_app_sysex(const uint8_t *m, size_t n)
         incoming.length)
         return;
     if (n == 6 && m[1] == 0x7d && m[2] == 'F' && m[3] == 'S') {
-        groove_screen_mirror_hello(m[4] == 1); /* a big-screen app is listening */
+        groove_screen_mirror_hello(m[4]); /* a big-screen app is listening (1: send the whole screen) */
         return;
     }
     if (!(n >= 8 && m[1] == 0x7d && m[2] == 'F' && m[3] == 'M' && m[4] == 2) &&

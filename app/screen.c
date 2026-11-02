@@ -1635,7 +1635,7 @@ static void draw(const struct fm1_ble_status *ble)
     draw_page(&frame_ble);
 }
 /* Screen mirror: while a computer asks for it, every band sent to the LCD is
- * also sent out over USB MIDI, so the screen can be shown big (for players
+ * also sent out over MIDI, on the port that asked (USB or Bluetooth), so the screen can be shown big (for players
  * who can't read a 1.54-inch display). The computer sends F0 7D 'F' 'S' 00 F7
  * about once a second (01 instead of 00: and the whole screen again, please);
  * streaming stops three seconds after the last one.
@@ -1648,12 +1648,12 @@ static void draw(const struct fm1_ble_status *ble)
  * and the boot logo lost its growing bars to make room. */
 enum { MIRROR_BUFFER = 16384, MIRROR_MESSAGE = 70, MIRROR_TIMEOUT = 3000 };
 static uint8_t mirror_buffer[MIRROR_BUFFER];
-static unsigned mirror_length, mirror_sent, mirror_on, mirror_hello;
+static unsigned mirror_length, mirror_sent, mirror_on, mirror_hello, mirror_port;
 static uint32_t mirror_heard;
 /* Called in the control task (the SysEx hook), which then polls the screen.
  * F0 7D 'F' 'S' 01 F7 also asks for the whole screen again (a viewer that
  * has just joined while another kept the mirror on). */
-void groove_screen_mirror_hello(unsigned all) { mirror_hello = 1 + all; }
+void groove_screen_mirror_hello(unsigned all) { mirror_hello = 1 + all; mirror_port = fm1_midi_input_source(); } /* all: 0 or 1 */
 /* The band just composed in paint_pixels, before the LCD transfer swaps it.
  * 0: no room yet, paint it later. A band bigger than the whole buffer is sent
  * as far as it fits rather than holding the LCD up for ever. */
@@ -1671,7 +1671,7 @@ static __attribute__((minsize)) int mirror_band(unsigned band, unsigned left, un
             }
             uint8_t *out = mirror_buffer + mirror_length;
             unsigned y = band * PAINT_ROWS + row, x = left + i, k = 10;
-            out[1] = 0xf0; out[2] = 0x7d; out[3] = 'F'; out[4] = 'S'; out[5] = 1;
+            memcpy(out + 1, "\xf0\x7d" "FS\x01", 5);
             out[6] = (uint8_t)(y & 127U); out[7] = (uint8_t)(y >> 7);
             out[8] = (uint8_t)(x & 127U); out[9] = (uint8_t)(x >> 7);
             for (; i < width && k + 5 <= MIRROR_MESSAGE; k += 4) {
@@ -1699,9 +1699,9 @@ static __attribute__((minsize)) void mirror_poll(uint32_t now)
     }
     if (now - mirror_heard >= MIRROR_TIMEOUT) mirror_on = 0;
     while (mirror_on && mirror_sent < mirror_length) {
-        int r = fm1_midi_send_port(FM1_MIDI_USB, mirror_buffer + mirror_sent + 1, mirror_buffer[mirror_sent]);
+        int r = fm1_midi_send_port(mirror_port, mirror_buffer + mirror_sent + 1, mirror_buffer[mirror_sent]);
         if (r == -2) { fm1_control_request(); return; } /* more to send: come back soon */
-        if (r) mirror_on = 0;
+        /* Any other failure (the port went away) drops the message; the viewer's hellos stop, and so does this. */
         mirror_sent += 1U + mirror_buffer[mirror_sent];
     }
     mirror_length = mirror_sent = 0;
