@@ -54,17 +54,19 @@ room at once, so a small buffer keeps up too. `cc screen_mirror.c test.c && ./a.
 Felucca) runs with the big screen in [pfkellogg/ChoralRootFM1, branch `big-screen`](https://github.com/pfkellogg/ChoralRootFM1/tree/big-screen),
 tested on a real FM-1 with FM-1 Mirror (Mac) and FM-1 Mirror + Spyglass (Android). What it took:
 
-- **26 lines in ChoralRoot's own files**, and only **6 of them do the work**; the other 20 are an on/off switch
+- **32 lines in ChoralRoot's own files**, and only **7 of them do the work**; the rest are an on/off switch
   (`CR_BIG_SCREEN`), so Felucca and the update loader, which share these files, build exactly as before:
   - `lcd.c`: one call in `lcd_blit` and one in `lcd_fill`, where every rectangle goes to the LCD.
   - `usb.c`: two lines where its SysEx parser finishes a message: a 6-byte `F0 7D 'F' 'S' .. F7` goes to `sm_sysex`.
   - `main.c`: one call a main-loop pass, `mirror_service()`.
-  - `choralroot.c`: the switch, and including the adapter.
+  - `choralroot.c`: the switch, including the adapter, and a 256-event SysEx send ring instead of 64 (`usb.c` takes
+    the size from outside now): the screen went out at ~25 KB/s, a big chord name in 0.9 s; now ~55 KB/s, 0.3 s.
+    **Check your firmware's USB send queue first**: it, not USB, sets how fast the screen can go.
 - **One new adapter file, 60 lines** (`firmware/src/cr_mirror.c`, MIT): turns ChoralRoot's byte-swapped pixels back
   into RGB565 rows for `sm_rows`, sends each message into usb.c's SysEx queue without ever waiting on it (`-2` when
   it's full), and asks ChoralRoot to redraw everything (`ui.force = 1`) when a new viewer joins or rows had to be
   dropped. A draw never waits more than 0.4 s for USB, so a host that stops reading can't slow the FM-1 down.
-- **This module, unchanged.** Cost: about 1 KB of flash and 6.5 KB of RAM.
+- **This module, unchanged.** Cost: about 1 KB of flash and 7.3 KB of RAM.
 
 The same three hooks fit any firmware: where it draws to the LCD, where a SysEx message ends, and its main loop.
 
