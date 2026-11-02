@@ -1,7 +1,8 @@
 # FM-1 screen mirror (MIT)
 
 Lets an M-VAVE FM-1 firmware send its screen over USB MIDI, so an app on a computer can show it big:
-[FM-1 Mirror](https://github.com/pfkellogg/fm1-mirror) (free, Mac/Windows/Linux) shows it live, in
+[FM-1 Mirror](https://github.com/pfkellogg/fm1-mirror) (free, Mac/Windows/Linux) and
+[FM-1 Mirror + Spyglass](https://github.com/pfkellogg/fm1-mirror-spyglass-android) (free, Android) show it live, in
 colour or high-contrast looks, for players who can't read the 1.54-inch display.
 
 **MIT licensed** (see LICENSE), so any FM-1 firmware can use it, open source or not, under any licence.
@@ -23,6 +24,14 @@ M-VAVE's FM1 Open and keeps its own licence.
 - The firmware sends only what it paints (what changes), and stops 3 seconds after the last hello.
   With nobody asking it sends nothing, so playing is unaffected.
 - `7D` is MIDI's non-commercial manufacturer ID.
+
+**It won't change under you.** These messages stay as they are. Anything new will be a new command
+byte after `'F' 'S'` (`02` and up), never a change to these, so a viewer that ignores commands it
+doesn't know keeps working. The hello must stay exactly 6 bytes: the firmware ignores a longer one.
+
+**USB names and IDs** (handy for a viewer that looks for the FM-1): M-VAVE's original V15 firmware is
+"FM-1", VID `0x4C4A` PID `0xC755`; the Big Screen firmware (on M-VAVE's Open V14) is "FM1 Community",
+VID `0x3654` PID `0x7756`. Other firmwares may use their own.
 
 ## Using it
 
