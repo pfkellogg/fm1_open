@@ -3,8 +3,9 @@
  *
  * FM-1 screen mirror, firmware-neutral version of the "Screen mirror" section
  * in app/screen.c of the screen-out branch. Messages (see README.md):
- *   in:  F0 7D 'F' 'S' 00 F7  (01: and send the whole screen again)
+ *   in:  F0 7D 'F' 'S' 00 F7  (01: and send the whole screen again; 02: only the sound's name, no screen)
  *   out: F0 7D 'F' 'S' 01 row_lo row_hi col_lo col_hi {count c0-6 c7-13 c14-15}... F7
+ *        F0 7D 'F' 'S' 02 name... F7  (the sound playing, in ASCII: sm_name; after each hello and when it changes)
  * Each message is at most SM_MESSAGE bytes, so it shares a small USB queue with notes.
  */
 #include "screen_mirror.h"
@@ -19,12 +20,17 @@
 static uint8_t sm_buffer[SM_BUFFER];
 static unsigned sm_length, sm_sent, sm_live, sm_hello, sm_full;
 static uint32_t sm_heard;
+static unsigned sm_name_hello, sm_name_live, sm_name_due;
+static uint32_t sm_name_heard;
+static char sm_name_last[48];
 
 int sm_sysex(const uint8_t *m, unsigned n)
 {
     if (n != 6 || m[0] != 0xf0 || m[1] != 0x7d || m[2] != 'F' || m[3] != 'S' || m[5] != 0xf7)
         return 0;
-    sm_hello = 1u + (m[4] == 1);
+    sm_name_hello = 1;                 /* every hello also asks for the sound's name */
+    if (m[4] != 2)
+        sm_hello = 1u + (m[4] == 1);
     return 1;
 }
 
@@ -94,4 +100,35 @@ void sm_poll(uint32_t now, sm_send_fn send)
         sm_length = n;
         sm_sent = 0;
     }
+}
+
+void sm_name(const char *name, uint32_t now, sm_send_fn send)
+{
+    uint8_t m[6 + 48];
+    unsigned i, n = 5, same = 1;
+    if (sm_name_hello) {               /* a hello (of either kind): send the name now, and keep it fresh 3 s */
+        sm_name_hello = 0;
+        sm_name_heard = now;
+        sm_name_live = 1;
+        sm_name_due = 1;
+    }
+    if (now - sm_name_heard >= SM_TIMEOUT) sm_name_live = 0;
+    if (!sm_name_live) return;
+    for (i = 0; i < sizeof sm_name_last - 1u && name[i]; ++i)
+        if (sm_name_last[i] != name[i]) same = 0;
+    if (sm_name_last[i]) same = 0;
+    if (!same) {
+        for (i = 0; i < sizeof sm_name_last - 1u && name[i]; ++i) sm_name_last[i] = name[i];
+        sm_name_last[i] = 0;
+        sm_name_due = 1;
+    }
+    if (!sm_name_due) return;
+    m[0] = 0xf0; m[1] = 0x7d; m[2] = 'F'; m[3] = 'S'; m[4] = 2;
+    for (i = 0; sm_name_last[i]; ++i) {
+        uint8_t c = (uint8_t)sm_name_last[i];
+        m[n++] = c < 0x20 || c > 0x7e ? (uint8_t)' ' : c;   /* 7-bit only (the header's middle dot: a space) */
+    }
+    m[n++] = 0xf7;
+    i = (unsigned)send(m, n);
+    if ((int)i == 0) sm_name_due = 0;  /* busy (-2) or not sent: again next time */
 }

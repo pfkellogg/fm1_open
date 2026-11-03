@@ -39,6 +39,24 @@ int main(void)
     sm_poll(5100, send);                            /* one message goes, then busy */
     assert(sm_rows(wide, 0, 0, 1, 1));              /* room again for a small row */
     busy_after = 0;
+    /* The sound's name: a name-only hello (02) sends it, but no screen; again after each hello, and when it changes. */
+    sm_poll(9000, send);                            /* (the screen's viewer has gone: 3 s without a hello) */
+    assert(!sm_on());
+    const uint8_t name_hi[] = {0xf0, 0x7d, 'F', 'S', 2, 0xf7};
+    assert(sm_sysex(name_hi, 6) && !sm_on());
+    got_n = 0;
+    sm_name("T1 FM6 \xB7ICE", 9100, send);
+    const uint8_t name[] = {0xf0, 0x7d, 'F', 'S', 2, 'T', '1', ' ', 'F', 'M', '6', ' ', ' ', 'I', 'C', 'E', 0xf7};
+    assert(got_n == sizeof name);
+    for (unsigned i = 0; i < got_n; ++i) assert(got[i] == name[i]);
+    got_n = 0;
+    sm_name("T1 FM6 \xB7ICE", 9200, send);         /* the same: nothing */
+    assert(got_n == 0);
+    sm_name("T2 DRUM", 9300, send);                 /* a change: sent */
+    assert(got_n == 13 && got[5] == 'T' && got[6] == '2');
+    got_n = 0;
+    sm_name("T3 X", 12200, send);                   /* 3 s since its hello: nobody's asking */
+    assert(got_n == 0);
     puts("ok");
     return 0;
 }

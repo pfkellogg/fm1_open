@@ -16,7 +16,7 @@
 typedef int (*sm_send_fn)(const uint8_t *message, unsigned length);
 
 /* Call for every incoming SysEx message; returns 1 if it was a mirror hello
- * (F0 7D 'F' 'S' 00/01 F7), which the caller can then ignore. */
+ * (F0 7D 'F' 'S' 00/01/02 F7; 02 asks only for the sound's name), which the caller can then ignore. */
 int sm_sysex(const uint8_t *m, unsigned n);
 
 /* 1 while an app is asking: only then is sm_rows worth calling. */
@@ -33,5 +33,9 @@ int sm_rows(const uint16_t *pixels, unsigned left, unsigned top, unsigned width,
 /* Call often (e.g. every main-loop pass) with the time in milliseconds: sends what's
  * queued, and stops mirroring 3 s after the last hello. */
 void sm_poll(uint32_t now_ms, sm_send_fn send);
+
+/* Call often with the sound playing now ("T1 FM6 ICE BELL", ASCII, up to 47 characters): while an app asks (any
+ * hello in the last 3 s), sends it as F0 7D 'F' 'S' 02 name... F7 after each hello and whenever it changes. */
+void sm_name(const char *name, uint32_t now_ms, sm_send_fn send);
 
 #endif

@@ -17,6 +17,8 @@ M-VAVE's FM1 Open and keeps its own licence.
 | app → FM-1 | `F0 7D 46 53 00 F7` (`'F' 'S'`) | "keep sending your screen" — about once a second |
 | app → FM-1 | `F0 7D 46 53 01 F7` | the same, and send the whole screen again (a new viewer) |
 | FM-1 → app | `F0 7D 46 53 01 rl rh cl ch {n c0 c1 c2}… F7` | one screen row, from column `c` |
+| app → FM-1 | `F0 7D 46 53 02 F7` | "keep sending the sound's name" only, no screen (for apps that only play it) |
+| FM-1 → app | `F0 7D 46 53 02 name… F7` | the sound playing, in ASCII (e.g. `T1 FM6 ICE BELL`): after each hello of any kind, and whenever it changes |
 
 - Row and column are two 7-bit bytes each (`low = v & 127`, `high = v >> 7`).
 - Each run is four bytes: a count 1–127, then the RGB565 colour as bits 0–6, 7–13 and 14–15.
@@ -25,6 +27,8 @@ M-VAVE's FM1 Open and keeps its own licence.
   does, and FM-1 Mirror and FM-1 Mirror + Spyglass use either. Bluetooth is slower, but keeps up.
 - The firmware sends only what it paints (what changes), and stops 3 seconds after the last hello.
   With nobody asking it sends nothing, so playing is unaffected.
+- The sound's name (`02`) is optional: firmware that doesn't know it never sends it, and a viewer shows
+  nothing then. FM-1 Mirror shows it on top of its spyglass.
 - `7D` is MIDI's non-commercial manufacturer ID.
 
 **It won't change under you.** These messages stay as they are. Anything new will be a new command
@@ -44,6 +48,8 @@ VID `0x3654` PID `0x7756`. Other firmwares may use their own.
 3. While `sm_on()`, give each block of rows you send to the LCD to `sm_rows()` as well. If it
    returns 0, the queue is full: try again after `sm_poll`, or repaint those rows later.
 4. When `sm_take_full_request()` returns 1, repaint the whole screen.
+5. Optional: call `sm_name(name, now_ms, send)` often (every 100 ms is plenty) with the sound playing,
+   in ASCII. It sends only after a hello or when the name changes, and nothing when nobody's asking.
 
 The buffer is 16 KB by default (`-DSM_BUFFER=…` to change it: ChoralRoot uses 6 KB). What has been sent frees its
 room at once, so a small buffer keeps up too. `cc screen_mirror.c test.c && ./a.out` runs the test.
