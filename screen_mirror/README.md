@@ -80,6 +80,6 @@ Questions, or want it tested on a real FM-1? pfkellogg@gmail.com — Patrick F. 
 
 ## Where it runs
 
-Tested on real FM-1s in ChoralRoot, JIANT FM, Skiff and SLOOP (SLOOP's build isn't released yet), and in this Official Open fork.
+Tested on real FM-1s in ChoralRoot, JIANT FM, Skiff and SLOOP ([SLOOP's](https://github.com/pfkellogg/sloop-fm1) is source only so far), and in this Official Open fork.
 
 M-VAVE is welcome to include this code in its own firmware, including V16 and later official releases: [m-vave/fm1_open#18](https://github.com/m-vave/fm1_open/issues/18).
