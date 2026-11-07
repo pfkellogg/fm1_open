@@ -77,3 +77,9 @@ tested on a real FM-1 with FM-1 Mirror (Mac) and FM-1 Mirror + Spyglass (Android
 The same three hooks fit any firmware: where it draws to the LCD, where a SysEx message ends, and its main loop.
 
 Questions, or want it tested on a real FM-1? pfkellogg@gmail.com — Patrick F. Kellogg
+
+## Where it runs
+
+Tested on real FM-1s in ChoralRoot, JIANT FM, Skiff and SLOOP (SLOOP's build isn't released yet), and in this Official Open fork.
+
+M-VAVE is welcome to include this code in its own firmware, including V16 and later official releases: [m-vave/fm1_open#18](https://github.com/m-vave/fm1_open/issues/18).
