@@ -6,6 +6,9 @@ the FM-1 sends its screen over MIDI, on the connection that asked (USB, or Bluet
 [FM-1 Mirror + Spyglass](https://github.com/pfkellogg/fm1-mirror-spyglass-android) (Android), for players who can't read a 1.54-inch display.
 It is not an official M-VAVE release.
 
+Offered to M-VAVE as [pull request #24](https://github.com/m-vave/fm1_open/pull/24) (branch `mvave-screen-mirror`: the
+firmware only, on their latest code, the boot screen keeping "OFFICIAL OPEN"; tested on a real FM-1, 2026-11-17).
+
 - **Protocol** (app/screen.c, "Screen mirror"; app/transfer.c): the computer sends `F0 7D 'F' 'S' 00 F7`
   about once a second (`01` instead of `00` also asks for the whole screen again). The FM-1 sends every
   row it paints as `F0 7D 'F' 'S' 01 row col <runs> F7`, row and col as two 7-bit bytes each, each run
